@@ -1,0 +1,39 @@
+{
+  "name": "esprit-university-api",
+  "version": "1.0.0",
+  "description": "Express.js API for Esprit University Study Abroad Platform",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js",
+    "dummy": "node scripts/createDummyAccounts.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "helmet": "^7.1.0",
+    "morgan": "^1.10.0",
+    "dotenv": "^16.3.1",
+    "mongodb": "^6.20.0",
+    "bcryptjs": "^3.0.2",
+    "jsonwebtoken": "^9.0.2",
+    "cookie-parser": "^1.4.6",
+    "express-rate-limit": "^7.1.5",
+    "joi": "^17.11.0",
+    "multer": "^2.0.2",
+    "nodemailer": "^7.0.6",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
+  },
+  "keywords": [
+    "express",
+    "api",
+    "university",
+    "study-abroad",
+    "mongodb"
+  ],
+  "author": "Esprit University",
+  "license": "MIT"
+}
