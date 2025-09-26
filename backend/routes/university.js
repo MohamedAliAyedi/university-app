@@ -114,3 +114,63 @@ router.post('/offers', async (req, res) => {
 });
 
 module.exports = router;
+
+// Update offer
+router.put('/offers/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const {
+      title,
+      description,
+      fieldOfStudy,
+      degree,
+      numberOfSpots,
+      requirements,
+      deadline,
+      startDate,
+      duration,
+      language,
+      tuitionFee,
+      scholarship
+    } = req.body;
+
+    const db = getDB();
+    const offers = db.collection('offers');
+
+    // Check if offer exists and belongs to this university
+    const existingOffer = await offers.findOne({ 
+      _id: new ObjectId(id),
+      universityId: req.user.userId 
+    });
+
+    if (!existingOffer) {
+      return res.status(404).json({ error: 'Offer not found or unauthorized' });
+    }
+
+    const updateData = {
+      title,
+      description,
+      fieldOfStudy,
+      degree,
+      numberOfSpots,
+      requirements: requirements || [],
+      deadline: new Date(deadline),
+      startDate: new Date(startDate),
+      duration,
+      language,
+      tuitionFee: tuitionFee || null,
+      scholarship: scholarship || false,
+      updatedAt: new Date(),
+    };
+
+    await offers.updateOne(
+      { _id: new ObjectId(id) },
+      { $set: updateData }
+    );
+
+    res.json({ message: 'Offer updated successfully' });
+  } catch (error) {
+    console.error('Error updating offer:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});

@@ -220,4 +220,205 @@ router.get('/export', async (req, res) => {
   }
 });
 
+// Create account
+router.post('/create-account', async (req, res) => {
+  try {
+    const {
+      email,
+      password,
+      firstName,
+      lastName,
+      phoneNumber,
+      role,
+      // Student specific
+      espritId,
+      emailEsprit,
+      // Teacher specific
+      department,
+      // University specific
+      universityName,
+      country,
+      website,
+      description,
+    } = req.body;
+
+    const db = getDB();
+    const users = db.collection('users');
+
+    // Check if user already exists
+    const existingUser = await users.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({
+        message: 'User with this email already exists'
+      });
+    }
+
+    // Hash password
+    const bcrypt = require('bcryptjs');
+    const hashedPassword = await bcrypt.hash(password, 12);
+
+    // Create user object based on role
+    let userData = {
+      email,
+      password: hashedPassword,
+      firstName,
+      lastName,
+      phoneNumber,
+      role,
+      isActive: true, // Admin-created accounts are active by default
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    // Add role-specific fields
+    switch (role) {
+      case 'student':
+        userData = {
+          ...userData,
+          espritId,
+          emailEsprit,
+          applications: [],
+          files: {},
+        };
+        // Check if esprit ID already exists
+        const existingStudent = await users.findOne({ espritId });
+        if (existingStudent) {
+          return res.status(400).json({
+            message: 'Student with this Esprit ID already exists'
+          });
+        }
+        break;
+      case 'teacher':
+        userData = {
+          ...userData,
+          department,
+          isDepartmentHead: false,
+          recommendations: [],
+        };
+        break;
+      case 'university':
+        userData = {
+          ...userData,
+          universityName,
+          country,
+          website: website || '',
+          description: description || '',
+          offers: [],
+        };
+        break;
+      default:
+        return res.status(400).json({
+          message: 'Invalid role specified'
+        });
+    }
+
+    // Insert user
+    const result = await users.insertOne(userData);
+
+    res.status(201).json({
+      message: 'Account created successfully',
+      userId: result.insertedId
+    });
+  } catch (error) {
+    console.error('Account creation error:', error);
+    res.status(500).json({
+      message: 'Internal server error'
+    });
+  }
+});
+
 module.exports = router;
+
+// Export offer data
+router.get('/export-offer/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const db = getDB();
+    const offers = db.collection('offers');
+    const users = db.collection('users');
+
+    // Get offer with applications
+    const offer = await offers.findOne({ _id: new ObjectId(id) });
+    if (!offer) {
+      return res.status(404).json({ error: 'Offer not found' });
+    }
+
+    // Prepare offer data
+    const offerData = [{
+      'Offer Title': offer.title,
+      'University': offer.universityName,
+      'Country': offer.country,
+      'Field of Study': offer.fieldOfStudy,
+      'Degree': offer.degree,
+      'Spots': offer.numberOfSpots,
+      'Applications': offer.applications?.length || 0,
+      'Deadline': new Date(offer.deadline).toLocaleDateString(),
+      'Start Date': new Date(offer.startDate).toLocaleDateString(),
+      'Duration': offer.duration,
+      'Language': offer.language,
+      'Tuition Fee': offer.tuitionFee || 'N/A',
+      'Scholarship': offer.scholarship ? 'Yes' : 'No',
+      'Status': offer.isActive ? 'Active' : 'Inactive',
+      'Created At': new Date(offer.createdAt).toLocaleDateString(),
+    }];
+
+    // Prepare applications data
+    const applicationsData = [];
+    if (offer.applications && offer.applications.length > 0) {
+      for (const app of offer.applications) {
+        applicationsData.push({
+          'Student Name': `${app.studentInfo.firstName} ${app.studentInfo.lastName}`,
+          'Student Email': app.studentInfo.email,
+          'Esprit ID': app.studentInfo.espritId,
+          'Field of Study': app.studentInfo.fieldOfStudy || 'N/A',
+          'GPA': app.studentInfo.degreeNote || 'N/A',
+          'Status': app.status,
+          'Applied At': new Date(app.appliedAt).toLocaleDateString(),
+          'Recommendations': app.recommendations?.length || 0,
+        });
+      }
+    }
+
+    // Prepare recommendations data
+    const recommendationsData = [];
+    if (offer.applications && offer.applications.length > 0) {
+      for (const app of offer.applications) {
+        if (app.recommendations && app.recommendations.length > 0) {
+          for (const rec of app.recommendations) {
+            recommendationsData.push({
+              'Student Name': `${app.studentInfo.firstName} ${app.studentInfo.lastName}`,
+              'Student ID': app.studentInfo.espritId,
+              'Teacher Name': rec.teacherName,
+              'Department': rec.department,
+              'Rating': rec.rating,
+              'Message': rec.message,
+              'Created At': new Date(rec.createdAt).toLocaleDateString(),
+            });
+          }
+        }
+      }
+    }
+
+    // Create workbook
+    const workbook = XLSX.utils.book_new();
+    
+    // Add worksheets
+    const offerWorksheet = XLSX.utils.json_to_sheet(offerData);
+    const applicationsWorksheet = XLSX.utils.json_to_sheet(applicationsData);
+    const recommendationsWorksheet = XLSX.utils.json_to_sheet(recommendationsData);
+    
+    XLSX.utils.book_append_sheet(workbook, offerWorksheet, 'Offer Details');
+    XLSX.utils.book_append_sheet(workbook, applicationsWorksheet, 'Applications');
+    XLSX.utils.book_append_sheet(workbook, recommendationsWorksheet, 'Recommendations');
+
+    // Generate buffer
+    const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="offer-${offer.title.replace(/\s+/g, '-').toLowerCase()}-${new Date().toISOString().split('T')[0]}.xlsx"`);
+    res.send(buffer);
+  } catch (error) {
+    console.error('Error exporting offer data:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});

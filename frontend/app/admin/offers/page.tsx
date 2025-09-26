@@ -6,9 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { LogoutButton } from '@/components/ui/logout-button';
-import { Search, ListFilter as Filter, Globe, Calendar, Users, GraduationCap, FileText, Clock, MapPin, DollarSign, Award } from 'lucide-react';
+import { Search, ListFilter as Filter, Globe, Calendar, Users, GraduationCap, MapPin, Award, Eye, Download, Shield } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
@@ -28,34 +26,43 @@ interface Offer {
   language: string;
   tuitionFee?: number;
   scholarship?: boolean;
-  applications: any[];
+  applications: Application[];
+  isActive: boolean;
+  createdAt: string;
 }
 
-interface StudentProfile {
-  firstName: string;
-  lastName: string;
-  email: string;
-  espritId: string;
-  applications: string[];
+interface Application {
+  _id: string;
+  studentId: string;
+  status: string;
+  appliedAt: string;
+  studentInfo: {
+    firstName: string;
+    lastName: string;
+    email: string;
+    espritId: string;
+    fieldOfStudy?: string;
+    degreeNote?: number;
+  };
+  recommendations: any[];
 }
 
-export default function StudentDashboard() {
+export default function AdminOffers() {
   const [offers, setOffers] = useState<Offer[]>([]);
   const [filteredOffers, setFilteredOffers] = useState<Offer[]>([]);
-  const [student, setStudent] = useState<StudentProfile | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [countryFilter, setCountryFilter] = useState('');
   const [fieldFilter, setFieldFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetchOffers();
-    fetchStudentProfile();
   }, []);
 
   useEffect(() => {
     filterOffers();
-  }, [offers, searchTerm, countryFilter, fieldFilter]);
+  }, [offers, searchTerm, countryFilter, fieldFilter, statusFilter]);
 
   const fetchOffers = async () => {
     try {
@@ -71,18 +78,6 @@ export default function StudentDashboard() {
     }
   };
 
-  const fetchStudentProfile = async () => {
-    try {
-      const response = await api.getStudentProfile();
-      if (response.ok) {
-        const data = await response.json();
-        setStudent(data.student);
-      }
-    } catch (error) {
-      console.error('Error fetching profile:', error);
-    }
-  };
-
   const filterOffers = () => {
     let filtered = offers;
 
@@ -94,48 +89,58 @@ export default function StudentDashboard() {
       );
     }
 
-    if (countryFilter) {
+    if (countryFilter && countryFilter !== 'all') {
       filtered = filtered.filter(offer => offer.country === countryFilter);
     }
 
-    if (fieldFilter) {
+    if (fieldFilter && fieldFilter !== 'all') {
       filtered = filtered.filter(offer => offer.fieldOfStudy === fieldFilter);
+    }
+
+    if (statusFilter && statusFilter !== 'all') {
+      filtered = filtered.filter(offer => 
+        statusFilter === 'active' ? offer.isActive : !offer.isActive
+      );
     }
 
     setFilteredOffers(filtered);
   };
 
-  const applyToOffer = async (offerId: string) => {
+  const exportOfferData = async (offerId: string) => {
     try {
-      const response = await api.submitApplication({ offerId });
-
+      const response = await fetch(`http://localhost:3001/api/admin/export-offer/${offerId}`, {
+        credentials: 'include',
+      });
+      
       if (response.ok) {
-        toast.success('Application submitted successfully!');
-        fetchOffers();
-        fetchStudentProfile();
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        const offer = offers.find(o => o._id === offerId);
+        a.download = `offer-${offer?.title.replace(/\s+/g, '-').toLowerCase()}-${new Date().toISOString().split('T')[0]}.xlsx`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+        toast.success('Offer data exported successfully');
       } else {
-        const data = await response.json();
-        toast.error(data.message || 'Failed to apply');
+        toast.error('Failed to export offer data');
       }
     } catch (error) {
-      toast.error('An error occurred while applying');
+      toast.error('An error occurred during export');
     }
   };
 
-  const isApplied = (offerId: string) => {
-    return student?.applications?.includes(offerId) || false;
-  };
-  //@ts-ignore
   const countries = [...new Set(offers.map(offer => offer.country))];
-  //@ts-ignore
   const fields = [...new Set(offers.map(offer => offer.fieldOfStudy))];
 
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <GraduationCap className="h-12 w-12 text-blue-600 mx-auto mb-4 animate-spin" />
-          <p className="text-gray-600">Loading your dashboard...</p>
+          <Shield className="h-12 w-12 text-blue-600 mx-auto mb-4 animate-spin" />
+          <p className="text-gray-600">Loading offers...</p>
         </div>
       </div>
     );
@@ -148,28 +153,12 @@ export default function StudentDashboard() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-6">
             <div className="flex items-center space-x-3">
-              <GraduationCap className="h-8 w-8 text-blue-600" />
-              <h1 className="text-2xl font-bold text-gray-900">Student Dashboard</h1>
+              <Shield className="h-8 w-8 text-blue-600" />
+              <h1 className="text-2xl font-bold text-gray-900">Manage Offers</h1>
             </div>
-            <div className="flex items-center space-x-4">
-              <Link href="/student/profile">
-                <Button variant="outline">
-                  <FileText className="h-4 w-4 mr-2" />
-                  My Profile
-                </Button>
-              </Link>
-              <Link href="/student/applications">
-                <Button variant="outline">
-                  My Applications
-                </Button>
-              </Link>
-              <LogoutButton />
-              <Avatar>
-                <AvatarFallback>
-                  {student?.firstName?.[0]}{student?.lastName?.[0]}
-                </AvatarFallback>
-              </Avatar>
-            </div>
+            <Link href="/admin/dashboard">
+              <Button variant="outline">Back to Dashboard</Button>
+            </Link>
           </div>
         </div>
       </header>
@@ -178,10 +167,10 @@ export default function StudentDashboard() {
         {/* Welcome Section */}
         <div className="mb-8">
           <h2 className="text-3xl font-bold text-gray-900 mb-2">
-            Welcome back, {student?.firstName}!
+            Study Abroad Offers
           </h2>
           <p className="text-gray-600">
-            Discover international study opportunities and build your future
+            Monitor and manage all study opportunities on the platform
           </p>
         </div>
 
@@ -199,33 +188,35 @@ export default function StudentDashboard() {
           
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">My Applications</CardTitle>
-              <FileText className="h-4 w-4 text-green-600" />
+              <CardTitle className="text-sm font-medium">Active Offers</CardTitle>
+              <GraduationCap className="h-4 w-4 text-green-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{student?.applications?.length || 0}</div>
+              <div className="text-2xl font-bold">
+                {offers.filter(offer => offer.isActive).length}
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Applications</CardTitle>
+              <Users className="h-4 w-4 text-orange-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {offers.reduce((sum, offer) => sum + offer.applications.length, 0)}
+              </div>
             </CardContent>
           </Card>
           
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Countries</CardTitle>
-              <MapPin className="h-4 w-4 text-orange-600" />
+              <MapPin className="h-4 w-4 text-purple-600" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{countries.length}</div>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">With Scholarships</CardTitle>
-              <Award className="h-4 w-4 text-purple-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {offers.filter(offer => offer.scholarship).length}
-              </div>
             </CardContent>
           </Card>
         </div>
@@ -235,11 +226,11 @@ export default function StudentDashboard() {
           <CardHeader>
             <CardTitle className="flex items-center">
               <Search className="h-5 w-5 mr-2" />
-              Find Study Opportunities
+              Filter Offers
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid md:grid-cols-4 gap-4">
+            <div className="grid md:grid-cols-5 gap-4">
               <div className="md:col-span-2">
                 <Input
                   placeholder="Search offers, universities, or keywords..."
@@ -274,9 +265,20 @@ export default function StudentDashboard() {
                   ))}
                 </SelectContent>
               </Select>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger>
+                  <SelectValue placeholder="All Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="inactive">Inactive</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </CardContent>
         </Card>
+
         {/* Offers Grid */}
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredOffers.map((offer) => (
@@ -286,12 +288,17 @@ export default function StudentDashboard() {
                   <Badge variant="secondary" className="mb-2">
                     {offer.country}
                   </Badge>
-                  {offer.scholarship && (
-                    <Badge className="bg-green-100 text-green-800">
-                      <Award className="h-3 w-3 mr-1" />
-                      Scholarship
+                  <div className="flex flex-col space-y-1">
+                    <Badge variant={offer.isActive ? "default" : "secondary"}>
+                      {offer.isActive ? "Active" : "Inactive"}
                     </Badge>
-                  )}
+                    {offer.scholarship && (
+                      <Badge className="bg-green-100 text-green-800">
+                        <Award className="h-3 w-3 mr-1" />
+                        Scholarship
+                      </Badge>
+                    )}
+                  </div>
                 </div>
                 <CardTitle className="text-lg line-clamp-2">{offer.title}</CardTitle>
                 <CardDescription className="line-clamp-2">
@@ -306,39 +313,33 @@ export default function StudentDashboard() {
                   </div>
                   <div className="flex items-center text-sm text-gray-600">
                     <Users className="h-4 w-4 mr-2" />
-                    {offer.numberOfSpots} spots available
+                    {offer.numberOfSpots} spots • {offer.applications.length} applications
                   </div>
                   <div className="flex items-center text-sm text-gray-600">
-                    <Clock className="h-4 w-4 mr-2" />
+                    <Calendar className="h-4 w-4 mr-2" />
                     Deadline: {new Date(offer.deadline).toLocaleDateString()}
                   </div>
-                  {offer.tuitionFee && (
-                    <div className="flex items-center text-sm text-gray-600">
-                      <DollarSign className="h-4 w-4 mr-2" />
-                      ${offer.tuitionFee.toLocaleString()} / year
-                    </div>
-                  )}
+                  <div className="flex items-center text-sm text-gray-600">
+                    <Calendar className="h-4 w-4 mr-2" />
+                    Created: {new Date(offer.createdAt).toLocaleDateString()}
+                  </div>
                 </div>
                 
                 <div className="flex justify-between items-center">
-                  <Link href={`/student/offers/${offer._id}`}>
+                  <Link href={`/admin/offers/${offer._id}`}>
                     <Button variant="outline" size="sm">
+                      <Eye className="h-4 w-4 mr-1" />
                       View Details
                     </Button>
                   </Link>
-                  {isApplied(offer._id) ? (
-                    <Badge variant="secondary" className="bg-blue-100 text-blue-800">
-                      Applied
-                    </Badge>
-                  ) : (
-                    <Button
-                      size="sm"
-                      onClick={() => applyToOffer(offer._id)}
-                      disabled={new Date() > new Date(offer.deadline)}
-                    >
-                      Apply Now
-                    </Button>
-                  )}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => exportOfferData(offer._id)}
+                  >
+                    <Download className="h-4 w-4 mr-1" />
+                    Export
+                  </Button>
                 </div>
               </CardContent>
             </Card>
@@ -351,7 +352,7 @@ export default function StudentDashboard() {
               <Globe className="h-12 w-12 text-gray-400 mx-auto mb-4" />
               <CardTitle className="text-gray-600 mb-2">No offers found</CardTitle>
               <CardDescription>
-                Try adjusting your search criteria or check back later for new opportunities.
+                Try adjusting your search criteria or check back later for new offers.
               </CardDescription>
             </CardContent>
           </Card>

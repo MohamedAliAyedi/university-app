@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Users, FileText, Globe, Settings, GraduationCap, Search, Filter, Download, Mail, CircleCheck as CheckCircle, Circle as XCircle, Clock, Shield } from 'lucide-react';
 import Link from 'next/link';
+import { LogoutButton } from '@/components/ui/logout-button';
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
 
@@ -195,6 +196,7 @@ const filterUsers = () => {
                   Settings
                 </Button>
               </Link>
+              <LogoutButton />
             </div>
           </div>
         </div>
@@ -289,7 +291,7 @@ const filterUsers = () => {
                   <SelectValue placeholder="All Roles" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Roles</SelectItem> {/* Changed from "" to "all" */}
+                  <SelectItem value="all">All Roles</SelectItem> {/* Changed from "\" to "all" */}
                   <SelectItem value="student">Students</SelectItem>
                   <SelectItem value="teacher">Teachers</SelectItem>
                   <SelectItem value="university">Universities</SelectItem>
@@ -302,7 +304,7 @@ const filterUsers = () => {
                   <SelectValue placeholder="All Status" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem> {/* Changed from "" to "all" */}
+                  <SelectItem value="all">All Status</SelectItem> {/* Changed from "\" to "all" */}
                   <SelectItem value="active">Active</SelectItem>
                   <SelectItem value="inactive">Inactive</SelectItem>
                 </SelectContent>

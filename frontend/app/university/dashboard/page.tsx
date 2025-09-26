@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Plus, Users, Globe, FileText, Calendar, MapPin, GraduationCap, Eye, CreditCard as Edit } from 'lucide-react';
 import Link from 'next/link';
+import { LogoutButton } from '@/components/ui/logout-button';
 import { api } from '@/lib/api';
 
 interface UniversityProfile {
@@ -100,6 +101,7 @@ export default function UniversityDashboard() {
                   Create Offer
                 </Button>
               </Link>
+              <LogoutButton />
             </div>
           </div>
         </div>

@@ -16,6 +16,7 @@ import {
   Eye
 } from 'lucide-react';
 import Link from 'next/link';
+import { LogoutButton } from '@/components/ui/logout-button';
 import { api } from '@/lib/api';
 
 interface TeacherProfile {
@@ -131,6 +132,7 @@ export default function TeacherDashboard() {
                   Department Head
                 </Badge>
               )}
+              <LogoutButton />
             </div>
           </div>
         </div>
